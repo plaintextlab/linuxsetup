@@ -415,7 +415,8 @@ aur_install vkd3d-proton-mingw
 #flatpak install -y flathub com.valvesoftware.Steam
 flatpak install -y flathub com.heroicgameslauncher.hgl
 #flatpak install -y flathub net.lutris.Lutris
-flatpak install -y flathub net.davidotek.pupgui2
+#flatpak install -y flathub net.davidotek.pupgui2 # Protonup QT
+flatpak install -y flathub com.vysp3r.ProtonPlus # Proton plus - https://flathub.org/en/apps/com.vysp3r.ProtonPlus
 
 # =============================================================================
 # 14. MEDIA CODECS & FRAMEWORKS
