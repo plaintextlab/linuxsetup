@@ -45,7 +45,7 @@ info "=== 1. System base ==="
 pac base-devel git curl wget reflector
 
 info "Updating pacman mirrors..."
-#sudo reflector --latest 20 --sort rate --protocol https --save /etc/pacman.d/mirrorlist
+sudo reflector --latest 20 --sort rate --protocol https --save /etc/pacman.d/mirrorlist
 sudo pacman -Syyu --noconfirm
 
 # Enable multilib repo (required for 32-bit gaming libs) — do this first
@@ -212,6 +212,14 @@ fc-cache -fv
 success "Fonts installed and cache updated"
 
 # =============================================================================
+# ICONS THEMES etc
+# =============================================================================
+pac \
+  papirus-icon-theme \
+  materia-gtk-theme \
+  lxappearance
+
+# =============================================================================
 # 9. TERMINAL & SHELL — kitty + bash
 # =============================================================================
 info "=== 9. Terminal & shell ==="
@@ -273,13 +281,30 @@ info "=== 12. Power management ==="
 pac \
   acpi \
   acpid \
-  tlp \
-  tlp-rdw \
-  powertop \
-  brightnessctl
-
 enable_service acpid
+
+#only laptop
+#pac \  
+#  tlp \
+#  tlp-rdw \
+#  powertop \
+#  brightnessctl
 enable_service tlp
+
+#only desktop
+pac \
+  ddcutil \
+  i2c-tools
+sudo modprobe i2c-dev
+# To make it permanent, add to modules load:
+echo "i2c-dev" | sudo tee /etc/modules-load.d/i2c.conf
+
+#Add your user to the i2c group (to avoid using sudo every time)
+sudo usermod -aG i2c $USER
+
+
+
+
 
 # =============================================================================
 # 13. HARDWARE SUPPORT + CPU/GPU AUTO-DETECTION
@@ -528,6 +553,8 @@ cat > ~/.config/i3/config << 'I3EOF'
 set $mod Mod4
 set $term kitty
 set $menu rofi -show drun -show-icons
+floating_modifier $mod
+
 
 font pango:JetBrainsMono Nerd Font 14
 
@@ -538,7 +565,7 @@ exec --no-startup-id ~/.config/i3/autostart.sh
 bindsym $mod+Return exec $term
 bindsym $mod+d      exec $menu
 bindsym $mod+q kill
-bindsym $mod+Shift+e exec i3-nagbar -t warning -m 'Exit i3?' -B 'Yes' 'i3-msg exit'
+#bindsym $mod+Shift+e exec i3-nagbar -t warning -m 'Exit i3?' -B 'Yes' 'i3-msg exit'
 bindsym $mod+Shift+r restart
 bindsym $mod+Shift+c reload
 
@@ -601,6 +628,10 @@ bindsym $mod+Shift+8 move container to workspace number $ws8
 bindsym $mod+Shift+9 move container to workspace number $ws9
 bindsym $mod+Shift+0 move container to workspace number $ws10
 
+bindsym $mod+Tab workspace next_on_output
+bindsym $mod+Shift+Tab workspace prev_on_output
+bindsym Mod1+Tab workspace back_and_forth
+
 # Media keys
 bindsym XF86AudioRaiseVolume exec pactl set-sink-volume @DEFAULT_SINK@ +5%
 bindsym XF86AudioLowerVolume exec pactl set-sink-volume @DEFAULT_SINK@ -5%
@@ -611,6 +642,8 @@ bindsym XF86AudioNext        exec playerctl next
 bindsym XF86AudioPrev        exec playerctl previous
 bindsym XF86MonBrightnessUp   exec brightnessctl set +10%
 bindsym XF86MonBrightnessDown exec brightnessctl set 10%-
+
+
 
 # Screenshot
 bindsym Print            exec scrot ~/Pictures/Screenshots/%Y%m%d_%H%M%S.png
@@ -653,8 +686,8 @@ client.unfocused        #1e1e2e #1e1e2e #6c7086 #1e1e2e   #1e1e2e
 client.urgent           #f38ba8 #f38ba8 #1e1e2e #f38ba8   #f38ba8
 
 # ── Gaps ──────────────────────────────────────────────────────────────────────
-gaps inner 6
-gaps outer 2
+gaps inner 10
+gaps outer 10
 default_border pixel 2
 hide_edge_borders smart
 
@@ -813,7 +846,7 @@ fi
 #change the default sink
 if [[ "$sound_server" == "pulseaudio" ]]; then
   pacmd "set-default-sink ${next_sink}"
-elif [[ "$sound_server" == "pipewire" ]]; then
+elif [[ "$sound_server" == "pipewire" ]]; thenmat
   # Get the name of the next sink
   next_sink_name=$(pactl list sinks | grep -C 2 "Sink #$next_sink" | sed -n -e 's/.*Name:[[:space:]]\+\(.*\)/\1/p' | head -n 1)
   pactl set-default-sink "$next_sink_name"
@@ -873,6 +906,32 @@ cat > ~/.config/i3/scripts.conf << 'SCRIPTEOF'
 
 # ── Add your custom bindings below ────────────────────────────────────────────
 bindsym $mod+p exec ~/.config/scripts/audio-device-switch.sh
+bindsym $mod+shift+w exec ~/.config/scripts/random-wallpapers.sh
+
+# Brightness contrast using ddc
+bindsym $mod+F1 exec --no-startup-id ~/.config/scripts/backlight_ddc_set.sh 0 1
+bindsym $mod+F2 exec --no-startup-id ~/.config/scripts/backlight_ddc_set.sh 10 1
+bindsym $mod+F3 exec --no-startup-id ~/.config/scripts/backlight_ddc_set.sh 20 1
+bindsym $mod+F4 exec --no-startup-id ~/.config/scripts/backlight_ddc_set.sh 30 1
+bindsym $mod+F5 exec --no-startup-id ~/.config/scripts/backlight_ddc_set.sh 40 1
+bindsym $mod+F6 exec --no-startup-id ~/.config/scripts/backlight_ddc_set.sh 50 1
+bindsym $mod+F7 exec --no-startup-id ~/.config/scripts/backlight_ddc_set.sh 60 1
+bindsym $mod+F8 exec --no-startup-id ~/.config/scripts/backlight_ddc_set.sh 70 1
+bindsym $mod+F9 exec --no-startup-id ~/.config/scripts/backlight_ddc_set.sh 80 1
+bindsym $mod+F10 exec --no-startup-id ~/.config/scripts/backlight_ddc_set.sh 90 1
+bindsym $mod+F11 exec --no-startup-id ~/.config/scripts/backlight_ddc_set.sh 100 1
+
+bindsym $mod+Shift+F1 exec --no-startup-id ~/.config/scripts/backlight_ddc_set.sh 0 2
+bindsym $mod+Shift+F2 exec --no-startup-id ~/.config/scripts/backlight_ddc_set.sh 10 2
+bindsym $mod+Shift+F3 exec --no-startup-id ~/.config/scripts/backlight_ddc_set.sh 20 2
+bindsym $mod+Shift+F4 exec --no-startup-id ~/.config/scripts/backlight_ddc_set.sh 30 2
+bindsym $mod+Shift+F5 exec --no-startup-id ~/.config/scripts/backlight_ddc_set.sh 40 2
+bindsym $mod+Shift+F6 exec --no-startup-id ~/.config/scripts/backlight_ddc_set.sh 50 2
+bindsym $mod+Shift+F7 exec --no-startup-id ~/.config/scripts/backlight_ddc_set.sh 60 2
+bindsym $mod+Shift+F8 exec --no-startup-id ~/.config/scripts/backlight_ddc_set.sh 70 2
+bindsym $mod+Shift+F9 exec --no-startup-id ~/.config/scripts/backlight_ddc_set.sh 80 2
+bindsym $mod+Shift+F10 exec --no-startup-id ~/.config/scripts/backlight_ddc_set.sh 90 2
+bindsym $mod+Shift+F11 exec --no-startup-id ~/.config/scripts/backlight_ddc_set.sh 100 2
 
 SCRIPTEOF
 success "scripts.conf stub written — add your keybindings to ~/.config/i3/scripts.conf"
@@ -901,6 +960,40 @@ else
 fi
 LAUNCHEOF
 chmod +x ~/.config/polybar/launch.sh
+
+info "=== 22. Writing polybar pywal colors ==="
+mkdir -p ~/.config/wal/templates
+cat > ~/.config/wal/templates/colors-polybar.ini << 'POLYCOLORS'
+; Generated by pywal — do not edit manually
+[colors]
+base      = {color0}
+mantle    = {color0}
+crust     = {color0}
+surface0  = {color1}
+surface1  = {color1}
+surface2  = {color2}
+overlay0  = {color3}
+overlay1  = {color3}
+overlay2  = {color4}
+subtext0  = {color7}
+subtext1  = {color7}
+text      = {foreground}
+lavender  = {color4}
+blue      = {color4}
+sapphire  = {color6}
+sky       = {color6}
+teal      = {color6}
+green     = {color2}
+yellow    = {color3}
+peach     = {color3}
+maroon    = {color1}
+red       = {color1}
+mauve     = {color5}
+pink      = {color5}
+flamingo  = {color5}
+rosewater = {color5}
+
+POLYCOLORS
 
 # ── current-audio-device.sh ───────────────────────────────────────────────────
 cat > ~/.config/polybar/scripts/current-audio-device.sh << 'AUDIOEOF'
@@ -949,6 +1042,128 @@ fi
 AUDIOEOF
 chmod +x ~/.config/polybar/scripts/current-audio-device.sh
 
+
+# ── backlight_ddc_set.sh ───────────────────────────────────────────────────
+cat > ~/.config/polybar/scripts/backlight_ddc_set.sh << 'DDC'
+
+#!/usr/bin/env bash
+
+# backlight_ddc_set.sh
+# Usage:
+#   backlight_set.sh 50   -> sets brightness = 50, contrast = 50
+
+set -e
+
+VALUE="$1"
+
+[ -z "$VALUE" ] && exit 1
+[ "$VALUE" -lt 0 ] && VALUE=0
+[ "$VALUE" -gt 100 ] && VALUE=100
+
+MONITOR="${2:-1}"
+
+BUS=$(ddcutil detect --brief | awk -v m="$MONITOR" '
+/Display/ {d++}
+/I2C bus/ && d==m {sub(".*/i2c-","",$3); print $3; exit}')
+
+
+# Auto-detect numeric I2C bus
+#BUS=$(ddcutil detect --brief | awk '/I2C bus/ {sub(".*/i2c-","",$3); print $3; exit}')
+#[ -z "$BUS" ] && exit 1
+
+# VCP codes
+BRIGHTNESS_VCP=10
+CONTRAST_VCP=12
+
+ddcutil --bus="$BUS" setvcp "$BRIGHTNESS_VCP" "$VALUE"
+ddcutil --bus="$BUS" setvcp "$CONTRAST_VCP" "$VALUE"
+
+# Optional dunst notification
+BVAL=$(ddcutil --bus="$BUS" getvcp 10 | awk -F'=' '/current value/ {gsub(/[^0-9]/,"",$2); print $2}')
+CVAL=$(ddcutil --bus="$BUS" getvcp 12 | awk -F'=' '/current value/ {gsub(/[^0-9]/,"",$2); print $2}')
+
+notify-send -u low -t 800 "Display" "Brightness: $BVAL%\nContrast: $CVAL%"
+
+
+DDC
+chmod +x ~/.config/polybar/scripts/backlight_ddc_set.sh
+
+# ── random-wallpapers.sh ───────────────────────────────────────────────────
+cat > ~/.config/scripts/random-wallpapers.sh << 'WALLPAPER'
+
+#!/usr/bin/env bash
+# wallpaper.sh — fetch a random high-res wallpaper and set it with feh
+# Uses picsum.photos (no API key required)
+# Usage: ./wallpaper.sh [width] [height]
+
+set -euo pipefail
+
+# ── Config ───────────────────────────────────────────────────────────────────
+WALLPAPER_DIR="${XDG_PICTURES_DIR:-$HOME/Pictures}/wallpapers"
+KEEP_LAST=10   # number of wallpapers to keep on disk (0 = keep all)
+
+# ── Resolution detection ──────────────────────────────────────────────────────
+if [[ "${1:-}" =~ ^[0-9]+$ ]] && [[ "${2:-}" =~ ^[0-9]+$ ]]; then
+    W=$1; H=$2
+elif command -v xrandr &>/dev/null; then
+    read -r W H < <(xrandr | awk '/\*/ {split($1,a,"x"); print a[1], a[2]; exit}')
+    W=${W:-1920}; H=${H:-1080}
+else
+    W=1920; H=1080
+fi
+
+echo "→ Resolution: ${W}x${H}"
+
+# ── Download ──────────────────────────────────────────────────────────────────
+mkdir -p "$WALLPAPER_DIR"
+DEST="$WALLPAPER_DIR/wallpaper_$(date +%Y%m%d_%H%M%S).jpg"
+
+# picsum.photos serves a random high-quality photo at the requested resolution
+# Adding a random seed avoids getting the same cached image each time
+SEED=$(( RANDOM * RANDOM ))
+URL="https://picsum.photos/seed/${SEED}/${W}/${H}"
+
+echo "→ Downloading from picsum.photos (seed: ${SEED})…"
+if ! curl -fsSL --max-time 30 -L -o "$DEST" "$URL"; then
+    echo "✗ Download failed. Check your internet connection." >&2
+    exit 1
+fi
+
+# Sanity check — make sure we got an actual image
+MIME=$(file --mime-type -b "$DEST")
+if [[ "$MIME" != image/* ]]; then
+    echo "✗ Downloaded file is not an image (got: $MIME). Removing." >&2
+    rm -f "$DEST"
+    exit 1
+fi
+
+echo "→ Saved: $DEST"
+
+# ── Set wallpaper ─────────────────────────────────────────────────────────────
+if ! command -v feh &>/dev/null; then
+    echo "✗ feh is not installed. Run: sudo apt install feh" >&2
+    exit 1
+fi
+
+feh --bg-fill "$DEST"
+echo "✓ Wallpaper set!"
+
+# ── Cleanup old wallpapers ────────────────────────────────────────────────────
+if [[ "$KEEP_LAST" -gt 0 ]]; then
+    COUNT=$(find "$WALLPAPER_DIR" -maxdepth 1 -name 'wallpaper_*.jpg' | wc -l)
+    if [[ "$COUNT" -gt "$KEEP_LAST" ]]; then
+        find "$WALLPAPER_DIR" -maxdepth 1 -name 'wallpaper_*.jpg' \
+            | sort | head -n $(( COUNT - KEEP_LAST )) \
+            | xargs rm -f
+        echo "→ Cleaned up old wallpapers (kept last $KEEP_LAST)"
+    fi
+fi
+
+
+WALLPAPER
+chmod +x ~/.config/scripts/random-wallpapers.sh
+
+
 # ── colors.ini ────────────────────────────────────────────────────────────────
 cat > ~/.config/polybar/colors.ini << 'COLOREOF'
 ; Catppuccin Mocha palette
@@ -987,8 +1202,6 @@ cat > ~/.config/polybar/config.ini << 'POLYEOF'
 ;  Polybar Config — Catppuccin Mocha / Nerd Font icons
 ;  Modules: volume | wifi | datetime | audio-device (custom script)
 ; =============================================================================
-
-include-file = ~/.config/polybar/colors.ini
 
 ; ── Bar definition ────────────────────────────────────────────────────────────
 [bar/main]
@@ -1272,6 +1485,7 @@ PICOMEOF
 info "=== 24. kitty config ==="
 mkdir -p ~/.config/kitty
 cat > ~/.config/kitty/kitty.conf << 'KITTYEOF'
+
 font_family      JetBrainsMono Nerd Font
 font_size        11.0
 bold_font        auto
@@ -1314,6 +1528,7 @@ color15 #a6adc8
 cursor           #f5e0dc
 cursor_text_color #1e1e2e
 url_color        #f5c2e7
+
 KITTYEOF
 
 # =============================================================================
