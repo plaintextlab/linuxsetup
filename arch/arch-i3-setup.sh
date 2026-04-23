@@ -15,7 +15,14 @@ warn()    { echo -e "${YELLOW}[WARN]${NC} $*"; }
 die()     { echo -e "${RED}[ERR]${NC}  $*"; exit 1; }
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
-pac() { sudo pacman -S --needed --noconfirm "$@"; }
+pac() { 
+for pkg in "$@"; do
+	echo ">>> $pkg"
+	if ! sudo pacman -S --needed --noconfirm "$pkg"; then
+		echo "ERROR: target not found -> $pkg" 
+	fi
+done
+}
 
 aur_install() {
   if ! command -v yay &>/dev/null; then
@@ -28,8 +35,8 @@ aur_install() {
   yay -S --needed --noconfirm "$@"
 }
 
-enable_service()      { sudo systemctl enable --now "$1"      && success "Enabled $1"; }
-enable_user_service() { systemctl --user enable --now "$1"    && success "Enabled user $1"; }
+enable_service()      { sudo systemctl enable "$1"      && success "Enabled $1"; }
+enable_user_service() { systemctl --user enable "$1"    && success "Enabled user $1"; }
 
 # =============================================================================
 # 1. SYSTEM BASE & MIRRORS
@@ -38,7 +45,7 @@ info "=== 1. System base ==="
 pac base-devel git curl wget reflector
 
 info "Updating pacman mirrors..."
-sudo reflector --latest 20 --sort rate --protocol https --save /etc/pacman.d/mirrorlist
+#sudo reflector --latest 20 --sort rate --protocol https --save /etc/pacman.d/mirrorlist
 sudo pacman -Syyu --noconfirm
 
 # Enable multilib repo (required for 32-bit gaming libs) — do this first
@@ -62,14 +69,13 @@ success "Flathub remote added"
 # =============================================================================
 info "=== 2. i3 Window Manager ==="
 pac \
-  i3-wm \           # Core window manager
-  i3lock \          # Screen locker
-  rofi \            # App launcher
-  #dmenu \           # Lightweight fallback launcher
-  polybar \         # Status bar
-  picom \           # Compositor (transparency, shadows, no tearing)
-  feh \             # Wallpaper setter
-  xss-lock          # Hook i3lock to systemd-logind lock events
+  i3-wm \
+  i3lock \
+  rofi \
+  polybar \
+  picom \
+  feh \
+  xss-lock
 
 # =============================================================================
 # 3. DISPLAY SERVER & LOGIN
@@ -78,16 +84,16 @@ info "=== 3. Display server & login ==="
 pac \
   xorg-server \
   xorg-xinit \
-  xorg-xrandr \     # Multi-monitor management
-  xorg-xset \       # Keyboard/mouse settings
-  xorg-setxkbmap \  # Keyboard layout
-  xorg-xrdb \       # X resources
-  xorg-xprop \      # Window property tool
-  xorg-xkill \      # Kill programs
-  arandr \          # GUI for xrandr (multi-monitor)
+  xorg-xrandr \
+  xorg-xset \
+  xorg-setxkbmap \
+  xorg-xrdb \
+  xorg-xprop \
+  xorg-xkill \
+  arandr \
   ly
 
-enable_service ly
+enable_service ly@tty1
 
 # =============================================================================
 # 4. AUDIO
@@ -155,9 +161,10 @@ pac \
   gvfs-mtp \
   gvfs-gphoto2 \
   libmtp \
-  android-file-transfer
+  android-file-transfer\
+  gvfs-smb
 
-aur_install gvfs-google
+#aur_install gvfs-google
 
 sudo udevadm control --reload-rules && sudo udevadm trigger
 
@@ -210,9 +217,9 @@ success "Fonts installed and cache updated"
 info "=== 9. Terminal & shell ==="
 pac \
   kitty \
-  bash-completion \  # Tab completion for bash
-  tmux \             # tmux is a "terminal multiplexer: it enables a number of terminals (or windows), each running a separate program, to be created, accessed - https://wiki.archlinux.org/title/Tmux
-  starship           # Cross-shell prompt
+  bash-completion \
+  tmux \
+  starship
 
 # bash_completion is already the default shell — just configure it well
 # (see section 22 for .bashrc)
@@ -235,8 +242,8 @@ pac \
   bat \
   eza \
   btop \
-  dust \    # Disk usage tui - https://github.com/bootandy/dust
-  duf       # Disk usage in a table view - https://github.com/muesli/duf
+  dust \
+  duf
 
 pac \
   file-roller \
@@ -245,7 +252,9 @@ pac \
   unrar \
   tar \
   gzip bzip2 xz \
-  zstd
+  zstd \
+  nano \
+  micro
 
 # =============================================================================
 # 11. CLIPBOARD & NOTIFICATIONS
@@ -309,7 +318,7 @@ info "Detecting GPU..."
 if lspci | grep -qi nvidia; then
   info "NVIDIA GPU detected — installing open kernel driver (required for RTX 50xx Blackwell)"
   pac \
-    nvidia-open \
+    nvidia-open-dkms \
     nvidia-utils \
     nvidia-settings \
     lib32-nvidia-utils \
@@ -448,9 +457,9 @@ pac \
   polkit-gnome \
   gparted \
   pass \
-  timeshift
+  timeshift \
+  redshift
 
-aur_install rofi-pass
 
 info "Installing GUI apps via Flatpak..."
 flatpak install -y flathub \
@@ -459,7 +468,7 @@ flatpak install -y flathub \
   org.gimp.GIMP \
   org.videolan.VLC \
   io.mpv.Mpv \
-  org.gnome.Evince \    # Document viewer
+  org.gnome.Evince \
   com.github.tchx84.Flatseal \
   org.filezillaproject.Filezilla
 
@@ -514,6 +523,7 @@ info "=== 19. Writing i3 config ==="
 mkdir -p ~/.config/i3
 
 cat > ~/.config/i3/config << 'I3EOF'
+
 # ── i3 Config ────────────────────────────────────────────────────────────────
 set $mod Mod4
 set $term kitty
@@ -527,26 +537,22 @@ exec --no-startup-id ~/.config/i3/autostart.sh
 # ── Key Bindings ──────────────────────────────────────────────────────────────
 bindsym $mod+Return exec $term
 bindsym $mod+d      exec $menu
-bindsym $mod+Shift+q kill
+bindsym $mod+q kill
 bindsym $mod+Shift+e exec i3-nagbar -t warning -m 'Exit i3?' -B 'Yes' 'i3-msg exit'
 bindsym $mod+Shift+r restart
 bindsym $mod+Shift+c reload
 
 # Focus
-bindsym $mod+h focus left
-bindsym $mod+j focus down
-bindsym $mod+k focus up
-bindsym $mod+l focus right
 bindsym $mod+Left  focus left
 bindsym $mod+Down  focus down
 bindsym $mod+Up    focus up
 bindsym $mod+Right focus right
 
 # Move
-bindsym $mod+Shift+h move left
-bindsym $mod+Shift+j move down
-bindsym $mod+Shift+k move up
-bindsym $mod+Shift+l move right
+bindsym $mod+Shift+Left move left
+bindsym $mod+Shift+Down move down
+bindsym $mod+Shift+Up move up
+bindsym $mod+Shift+Right move right
 
 # Layout
 bindsym $mod+v       split v
@@ -554,7 +560,8 @@ bindsym $mod+b       split h
 bindsym $mod+f       fullscreen toggle
 bindsym $mod+s       layout stacking
 bindsym $mod+w       layout tabbed
-bindsym $mod+e       layout toggle split
+bindsym $mod+x       layout toggle split
+bindsym $mod+Shift+s sticky toggle
 bindsym $mod+Shift+space floating toggle
 bindsym $mod+space   focus mode_toggle
 bindsym $mod+a       focus parent
@@ -611,11 +618,14 @@ bindsym Shift+Print      exec scrot -s ~/Pictures/Screenshots/%Y%m%d_%H%M%S.png
 bindsym $mod+Shift+Print exec scrot -u ~/Pictures/Screenshots/%Y%m%d_%H%M%S.png
 
 # App shortcuts
-bindsym $mod+n       exec nemo
-bindsym $mod+p       exec kitty wiremix
+bindsym $mod+e       exec nemo
+bindsym $mod+Shift+p       exec kitty wiremix
 bindsym $mod+i       exec kitty impala
 bindsym $mod+Shift+b exec kitty bluetui
-bindsym $mod+Shift+l exec i3lock -c 1e1e2e
+#bindsym $mod+Shift+l exec i3lock -c 1e1e2e
+# Night light
+bindsym $mod+n exec --no-startup-id redshift -O 3500
+bindsym $mod+Shift+n exec --no-startup-id redshift -x
 
 # ── Source custom user scripts (add your bindings in scripts.conf) ────────────
 # Example:  bindsym $mod+x exec ~/.config/i3/scripts/my-script.sh
@@ -657,6 +667,8 @@ for_window [class="^.*"]             border pixel 2
 
 # Prevent Nemo from managing the desktop
 exec --no-startup-id gsettings set org.nemo.desktop show-desktop-icons false
+
+
 I3EOF
 
 success "i3 config written"
@@ -723,6 +735,124 @@ AUTOEOF
 chmod +x ~/.config/i3/autostart.sh
 success "autostart.sh written to ~/.config/i3/autostart.sh"
 
+
+
+
+# =============================================================================
+# 20. Audio output change script - on Win + p key (Shortcut can be changed in i3 config file)
+# =============================================================================
+info "=== 20. Writing audio-device-switch.sh ==="
+
+cat > ~/.config/scripts/audio-device-switch.sh << 'AUDIOEOF'
+
+#!/usr/bin/env bash
+
+# audio-device-switch - audio device switch with a keybind
+# Adapted from this: 
+# https://gist.githubusercontent.com/kbravh/1117a974f89cc53664e55823a55ac320/raw/9d04a10ae925074536047ae8100c6b0dbfc303d6/audio-device-switch.sh
+# Readme: https://gist.github.com/kbravh/1117a974f89cc53664e55823a55ac320
+# Creator: https://github.com/kbravh
+
+# Audio Output Switcher
+# This script will cycle to the next available audio output device. 
+# It can be tied to a hotkey to easily be triggered.
+# This is handy, for example, for swapping between speakers and headphones.
+# This script will work on systems running PulseAudio or Pipewire services.
+
+
+
+# Check which sound server is running
+if pgrep pulseaudio >/dev/null; then
+  sound_server="pulseaudio"
+elif pgrep pipewire >/dev/null; then
+  sound_server="pipewire"
+else
+  echo "Neither PulseAudio nor PipeWire is running."
+  exit 1
+fi
+
+# Grab a count of how many audio sinks we have
+if [[ "$sound_server" == "pulseaudio" ]]; then
+  sink_count=$(pacmd list-sinks | grep -c "index:[[:space:]][[:digit:]]")
+  # Create an array of the actual sink IDs
+  sinks=()
+  mapfile -t sinks < <(pacmd list-sinks | grep 'index:[[:space:]][[:digit:]]' | sed -n -e 's/.*index:[[:space:]]\([[:digit:]]\)/\1/p')
+  # Get the ID of the active sink
+  active_sink=$(pacmd list-sinks | sed -n -e 's/[[:space:]]*\*[[:space:]]index:[[:space:]]\([[:digit:]]\)/\1/p')
+
+elif [[ "$sound_server" == "pipewire" ]]; then
+  sink_count=$(pactl list sinks | grep -c "Sink #[[:digit:]]")
+  # Create an array of the actual sink IDs
+  sinks=()
+  mapfile -t sinks < <(pactl list sinks | grep 'Sink #[[:digit:]]' | sed -n -e 's/.*Sink #\([[:digit:]]\)/\1/p')
+  # Get the ID of the active sink
+  active_sink_name=$(pactl info | grep 'Default Sink:' | sed -n -e 's/.*Default Sink:[[:space:]]\+\(.*\)/\1/p')
+  active_sink=$(pactl list sinks | grep -B 2 "$active_sink_name" | sed -n -e 's/Sink #\([[:digit:]]\)/\1/p' | head -n 1)
+fi
+
+# Get the ID of the last sink in the array
+final_sink=${sinks[$((sink_count - 1))]}
+
+# Find the index of the active sink
+for index in "${!sinks[@]}"; do
+  if [[ "${sinks[$index]}" == "$active_sink" ]]; then
+    active_sink_index=$index
+  fi
+done
+
+# Default to the first sink in the list
+next_sink=${sinks[0]}
+next_sink_index=0
+
+# If we're not at the end of the list, move up the list
+if [[ $active_sink -ne $final_sink ]]; then
+  next_sink_index=$((active_sink_index + 1))
+  next_sink=${sinks[$next_sink_index]}
+fi
+
+#change the default sink
+if [[ "$sound_server" == "pulseaudio" ]]; then
+  pacmd "set-default-sink ${next_sink}"
+elif [[ "$sound_server" == "pipewire" ]]; then
+  # Get the name of the next sink
+  next_sink_name=$(pactl list sinks | grep -C 2 "Sink #$next_sink" | sed -n -e 's/.*Name:[[:space:]]\+\(.*\)/\1/p' | head -n 1)
+  pactl set-default-sink "$next_sink_name"
+fi
+
+#move all inputs to the new sink
+if [[ "$sound_server" == "pulseaudio" ]]; then
+  for app in $(pacmd list-sink-inputs | sed -n -e 's/index:[[:space:]]\([[:digit:]]\)/\1/p'); do
+    pacmd "move-sink-input $app $next_sink"
+  done
+elif [[ "$sound_server" == "pipewire" ]]; then
+  for app in $(pactl list sink-inputs | sed -n -e 's/.*Sink Input #\([[:digit:]]\)/\1/p'); do
+    pactl "move-sink-input $app $next_sink"
+  done
+fi
+
+# Create a list of the sink descriptions
+sink_descriptions=()
+if [[ "$sound_server" == "pulseaudio" ]]; then
+  mapfile -t sink_descriptions < <(pacmd list-sinks | sed -n -e 's/.*alsa.name[[:space:]]=[[:space:]]"\(.*\)"/\1/p')
+elif [[ "$sound_server" == "pipewire" ]]; then
+  mapfile -t sink_descriptions < <(pactl list sinks | sed -n -e 's/.*Description:[[:space:]]\+\(.*\)/\1/p')
+fi
+
+# Find the index that matches our new active sink
+for sink_index in "${!sink_descriptions[@]}"; do
+  if [[ "$sink_index" == "$next_sink_index" ]]; then
+    notify-send -i audio-volume-high "Sound output switched to:" "${sink_descriptions[$sink_index]}"
+    exit
+  fi
+done
+
+
+
+AUDIOEOF
+chmod +x ~/.config/scripts/audio-device-switch.sh
+success "audio-device-switch.sh written to ~/.config/scripts/audio-device-switch.sh"
+
+
 # =============================================================================
 # 21. SCRIPTS STUB — user custom script bindings
 # =============================================================================
@@ -742,6 +872,7 @@ cat > ~/.config/i3/scripts.conf << 'SCRIPTEOF'
 # =============================================================================
 
 # ── Add your custom bindings below ────────────────────────────────────────────
+bindsym $mod+p exec ~/.config/scripts/audio-device-switch.sh
 
 SCRIPTEOF
 success "scripts.conf stub written — add your keybindings to ~/.config/i3/scripts.conf"
@@ -1021,26 +1152,118 @@ success "Polybar config written to ~/.config/polybar/"
 info "=== 23. picom config ==="
 mkdir -p ~/.config/picom
 cat > ~/.config/picom/picom.conf << 'PICOMEOF'
-backend          = "glx";
-vsync            = true;
-glx-no-stencil   = true;
 
-shadow           = true;
-shadow-radius    = 7;
-shadow-opacity   = 0.5;
-shadow-offset-x  = -7;
-shadow-offset-y  = -7;
-shadow-exclude   = ["class_g = 'i3-frame'", "window_type = 'dock'"];
+backend = "glx";
+vsync = true;
+log-level = "warn";
 
-fading           = true;
-fade-in-step     = 0.06;
-fade-out-step    = 0.06;
-fade-delta       = 5;
+animations = (
+  { triggers = ["open", "show"];  preset = "appear";          direction = "up";   duration = 0.25; easing = "ease-out";    },
+  { triggers = ["close", "hide"]; preset = "disappear";       direction = "down"; duration = 0.25; easing = "ease-in";     },
+  { triggers = ["geometry"];      preset = "geometry-change";                     duration = 0.20; easing = "ease-in-out"; }
+);
 
-corner-radius    = 6;
-round-borders    = 1;
+animation-window-mass = 0.9;
+animation-stiffness = 180.0;
+animation-dampening = 15.0;
+animation-clamping = false;
 
-opacity-rule     = [];
+shadow = true;
+shadow-radius = 16;
+shadow-opacity = 0.5;
+shadow-ignore-shaped = false;
+
+inactive-opacity = 0.85;
+active-opacity = 0.95;
+frame-opacity = 1.0;
+fullscreen-opacity = 1.0;
+
+fading = true;
+fade-delta = 10;
+fade-in-step = 0.05;
+fade-out-step = 0.05;
+
+blur-method = "dual_kawase";
+blur-strength = 5;
+blur-background = true;
+blur-ovredir = false;
+blur-background-frame = true;
+blur-background-fixed = true;
+
+corner-radius = 0;
+round-borders = 0;
+
+opacity-rule = [
+  "100:fullscreen",
+  "100:class_g = 'firefox-esr'",
+  "100:class_g = 'firefox'",
+  "100:class_g = 'vlc'",
+  "100:class_g = 'mpv'",
+  "100:class_g = 'steam_app_default'",
+  "100:class_g = 'Gimp'",
+  "100:class_g = 'libreoffice-writer'",
+  "100:class_g = 'kdenlive'",
+  "100:class_g = 'Virt-manager'",
+  "100:class_g = 'steam'",
+  "100:class_g = 'Thunar'",
+  "100:class_g = 'resolve'",
+];
+
+shadow-exclude = [
+  "window_type = 'dock'",
+  "window_type = 'desktop'",
+  "window_type = 'menu'",
+  "window_type = 'dropdown_menu'",
+  "window_type = 'popup_menu'",
+  "window_type = 'tooltip'",
+  "_GTK_FRAME_EXTENTS@:c",
+  "class_g = 'conky'",
+  "class_g = 'mpv'",
+];
+
+blur-background-exclude = [
+  "window_type = 'dock'",
+  "window_type = 'desktop'",
+  "window_type = 'menu'",
+  "window_type = 'dropdown_menu'",
+  "window_type = 'popup_menu'",
+  "window_type = 'tooltip'",
+  "_GTK_FRAME_EXTENTS@:c",
+  "_NET_WM_STATE@:32a *= '_NET_WM_STATE_HIDDEN'",
+  "_NET_WM_WINDOW_TYPE@:a *= '_NET_WM_WINDOW_TYPE_DND'",
+  "window_role *= 'nemo-dnd-window'",
+  "class_g *= 'nemo-dnd-window'",
+  "name *= 'Drag'",
+  "name *= 'dnd'",
+  "class_g = 'nemo'",
+  "class_g = 'conky'",
+  "class_g = 'mpv'",
+];
+
+blur-exclude = [
+  "class_g = 'slop'",
+  "_NET_WM_WINDOW_TYPE@:a *= '_NET_WM_WINDOW_TYPE_DND'",
+  "window_type = 'dock'",
+  "window_type = 'desktop'",
+];
+
+rounded-corners-exclude = [
+  "window_type = 'dock'",
+  "window_type = 'desktop'",
+  "window_type = 'dropdown_menu'",
+  "window_type = 'popup_menu'",
+  "window_type = 'menu'",
+  "class_g = 'mpv'",
+];
+
+wintypes: {
+  tooltip     = { fade = true; shadow = true; opacity = 0.9; focus = true; full-shadow = false; };
+  dock        = { shadow = false; };
+  dnd         = { shadow = false; };
+  popup_menu  = { opacity = 0.9; };
+  dropdown_menu = { opacity = 0.9; };
+};
+
 PICOMEOF
 
 # =============================================================================
